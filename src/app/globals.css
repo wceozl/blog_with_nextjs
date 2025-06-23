@@ -19,8 +19,55 @@
   }
 }
 
+/* 自定义样式 */
+@layer utilities {
+  /* 文本截断 */
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* 全局样式 */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-gray-50;
+}
+
+/* 代码块样式优化 */
+pre code {
+  @apply block whitespace-pre-wrap;
+}
+
+/* 链接悬停效果 */
+a:hover {
+  @apply transition-colors duration-200;
+}
+
+/* 按钮悬停效果 */
+button:hover {
+  @apply transition-all duration-200;
+}
+
+/* 卡片悬停效果 */
+.shadow-md:hover {
+  @apply transition-shadow duration-200;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
 }
