@@ -1,0 +1,28 @@
+# SAM配置文件 - 简化部署命令，避免每次输入参数
+
+version = 0.1
+
+# 默认配置 - 用于 sam deploy
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "blog-fullstack-dev"           # CloudFormation栈名称
+s3_prefix = "blog-fullstack-dev"                # S3前缀
+region = "us-east-1"                        # AWS区域
+confirm_changeset = true                   # 自动确认变更
+fail_on_empty_changeset = false            # 允许空变更集
+capabilities = "CAPABILITY_IAM"             # IAM权限
+parameter_overrides = "Environment=\"dev\" DBUsername=\"postgres\" GitHubUsername=\"wceozl\""
+resolve_s3 = true                          # 让SAM自动管理S3存储桶
+image_repositories = []
+
+# 构建配置 - 用于 sam build  
+[default.build]
+[default.build.parameters]
+cached = true           # 启用构建缓存
+parallel = true         # 并行构建
+
+# 本地测试配置 - 用于 sam local
+[default.local_start_api]
+[default.local_start_api.parameters]
+host = "0.0.0.0"       # 监听所有网卡
+port = 3001            # 本地测试端口

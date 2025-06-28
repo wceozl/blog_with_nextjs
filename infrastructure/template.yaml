@@ -1,0 +1,373 @@
+# CloudFormation模板格式版本 - 固定值，AWS规定的标准
+AWSTemplateFormatVersion: "2010-09-09"
+
+# SAM框架转换器版本 - 固定值，告诉CloudFormation这是一个SAM模板
+Transform: AWS::Serverless-2016-10-31
+
+# 模板描述 - 添加前端支持 v1.1
+Description: "Blog Full Stack Application with Frontend"
+
+#==============================================================================
+# 全局配置
+#==============================================================================
+Globals:
+  Function:
+    Timeout: 120
+    MemorySize: 1024
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        NODE_ENV: production
+
+#==============================================================================
+# 参数配置
+#==============================================================================
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+  DBUsername:
+    Type: String
+    Default: postgres
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+  GitHubToken:
+    Type: String
+    NoEcho: true
+  GitHubUsername:
+    Type: String
+    Default: wceozl
+
+#==============================================================================
+# AWS资源定义 - 按严格的依赖层次组织
+#==============================================================================
+Resources:
+  #============================================================================
+  # 第1层：基础网络资源（无依赖）
+  #============================================================================
+
+  BlogVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-vpc"
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BlogVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-public-subnet"
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BlogVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-private-subnet-1"
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BlogVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-private-subnet-2"
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BlogVPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-private-subnet-3"
+
+  #============================================================================
+  # 第2层：网络连接组件
+  #============================================================================
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-igw"
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref BlogVPC
+
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-nat-eip"
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-nat-gateway"
+
+  #============================================================================
+  # 第3层：路由表配置
+  #============================================================================
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BlogVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-public-rt"
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BlogVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-private-rt"
+
+  DefaultPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet3
+
+  #============================================================================
+  # 第4层：安全组（无相互引用）
+  #============================================================================
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Environment}-blog-database-sg"
+      GroupDescription: "Security group for Aurora PostgreSQL database"
+      VpcId: !Ref BlogVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.4.0/24 # 只允许Lambda子网访问
+          Description: "Allow Lambda subnet to access database"
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-database-sg"
+
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Environment}-blog-lambda-sg"
+      GroupDescription: "Security group for Lambda functions"
+      VpcId: !Ref BlogVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.2.0/24 # 访问数据库子网1
+          Description: "Access to database subnet 1"
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.3.0/24 # 访问数据库子网2
+          Description: "Access to database subnet 2"
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: "Access to HTTP services"
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: "Access to HTTP services"
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-lambda-sg"
+
+  #============================================================================
+  # 第5层：数据库资源
+  #============================================================================
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub "${Environment}-blog-db-subnet-group"
+      DBSubnetGroupDescription: "Aurora Subnet Group"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-db-subnet-group"
+
+  AuroraCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      DBClusterIdentifier: !Sub "${Environment}-blog-aurora-cluster"
+      Engine: aurora-postgresql
+      EngineVersion: "15.4"
+      Port: 5432
+      DatabaseName: blog_db
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref DatabaseSecurityGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: "03:00-04:00"
+      PreferredMaintenanceWindow: "sun:04:00-sun:05:00"
+      StorageEncrypted: true
+      DeletionProtection: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-aurora-cluster"
+
+  AuroraWriterInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub "${Environment}-blog-aurora-writer"
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceClass: db.t4g.medium
+      Engine: aurora-postgresql
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-aurora-writer"
+
+  AuroraReaderInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub "${Environment}-blog-aurora-reader"
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceClass: db.t4g.medium
+      Engine: aurora-postgresql
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-blog-aurora-reader"
+
+  #============================================================================
+  # 第7层：Lambda函数 - 简化配置
+  #============================================================================
+
+  BlogApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Environment}-blog-api"
+      CodeUri: ../backend/dist/
+      Handler: lambda.handler
+      Description: "NestJS后端API"
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt AuroraCluster.Endpoint.Address
+          DB_READ_HOST: !GetAtt AuroraCluster.ReadEndpoint.Address
+          DB_PORT: 5432
+          DB_USERNAME: !Ref DBUsername
+          DB_PASSWORD: !Ref DBPassword
+          DB_DATABASE: blog_db
+          GITHUB_TOKEN: !Ref GitHubToken
+          GITHUB_USERNAME: !Ref GitHubUsername
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet3
+      Events:
+        # 让SAM自动创建和配置API Gateway
+        ApiRoot:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+        ApiProxy:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+#==============================================================================
+# 输出结果
+#==============================================================================
+Outputs:
+  ApiUrl:
+    Description: "API Gateway Address"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+    Export:
+      Name: !Sub "${Environment}-blog-api-url"
+
+  VpcId:
+    Description: "VPC ID"
+    Value: !Ref BlogVPC
+    Export:
+      Name: !Sub "${Environment}-blog-vpc-id"
+
+  DatabaseWriteEndpoint:
+    Description: "Database write endpoint"
+    Value: !GetAtt AuroraCluster.Endpoint.Address
+    Export:
+      Name: !Sub "${Environment}-blog-db-write-endpoint"
+
+  DatabaseReadEndpoint:
+    Description: "Database read endpoint"
+    Value: !GetAtt AuroraCluster.ReadEndpoint.Address
+    Export:
+      Name: !Sub "${Environment}-blog-db-read-endpoint"
