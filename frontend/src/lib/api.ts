@@ -33,7 +33,9 @@ export const blogApi = {
     if (params?.tag) searchParams.append("tag", params.tag);
 
     const url = `${API_BASE_URL}/blog${searchParams.toString() ? "?" + searchParams.toString() : ""}`;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      credentials: 'include',
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -44,7 +46,9 @@ export const blogApi = {
 
   // 获取文章详情
   getDetail: async (id: string): Promise<ApiResponse<Article>> => {
-    const response = await fetch(`${API_BASE_URL}/blog/${id}`);
+    const response = await fetch(`${API_BASE_URL}/blog/${id}`, {
+      credentials: 'include',
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -60,6 +64,7 @@ export const blogApi = {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
 
@@ -80,6 +85,7 @@ export const blogApi = {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
 
@@ -94,6 +100,7 @@ export const blogApi = {
   delete: async (id: string): Promise<ApiResponse<null>> => {
     const response = await fetch(`${API_BASE_URL}/blog/${id}`, {
       method: "DELETE",
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -125,7 +132,9 @@ interface GitHubUser {
 export const githubApi = {
   // 获取用户信息
   getUser: async (): Promise<ApiResponse<GitHubUser>> => {
-    const response = await fetch(`${API_BASE_URL}/github/user`);
+    const response = await fetch(`${API_BASE_URL}/github/user`, {
+      credentials: 'include',
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -136,7 +145,9 @@ export const githubApi = {
 
   // 获取仓库列表
   getRepositories: async (): Promise<ApiResponse<GitHubResponse>> => {
-    const response = await fetch(`${API_BASE_URL}/github/repositories`);
+    const response = await fetch(`${API_BASE_URL}/github/repositories`, {
+      credentials: 'include',
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -147,7 +158,9 @@ export const githubApi = {
 
   // 获取当前项目信息
   getCurrentProject: async (): Promise<ApiResponse<GitHubRepository>> => {
-    const response = await fetch(`${API_BASE_URL}/github/current-project`);
+    const response = await fetch(`${API_BASE_URL}/github/current-project`, {
+      credentials: 'include',
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);

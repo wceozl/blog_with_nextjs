@@ -36,7 +36,7 @@ async function createNestServer(): Promise<express.Application> {
     origin: [
       'http://localhost:3000',
       'http://localhost:3001',
-      'https://d350xeuecjph8o.cloudfront.net', // Amplify CloudFront域名
+      'https://main.danec3gznhndc.amplifyapp.com',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -68,10 +68,26 @@ export const handler = async (
   try {
     if (!cachedServer) {
       const expressApp = await createNestServer();
-      cachedServer = serverlessExpress({ app: expressApp });
+      cachedServer = serverlessExpress({
+        app: expressApp,
+        resolutionMode: 'PROMISE',
+        binaryMimeTypes: [],
+      });
     }
 
     const response = await cachedServer(event, context);
+
+    // 确保所有响应都包含CORS头
+    if (response.headers) {
+      response.headers['Access-Control-Allow-Origin'] =
+        'https://main.danec3gznhndc.amplifyapp.com';
+      response.headers['Access-Control-Allow-Credentials'] = 'true';
+      response.headers['Access-Control-Allow-Methods'] =
+        'GET,POST,PUT,DELETE,OPTIONS';
+      response.headers['Access-Control-Allow-Headers'] =
+        'Content-Type,Authorization,X-Requested-With,X-Api-Key,X-Amz-Date,X-Amz-Security-Token';
+    }
+
     return response;
   } catch (error) {
     console.error('Lambda Error:', error.message);
@@ -80,7 +96,12 @@ export const handler = async (
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin':
+          'https://main.danec3gznhndc.amplifyapp.com',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        'Access-Control-Allow-Headers':
+          'Content-Type,Authorization,X-Requested-With,X-Api-Key,X-Amz-Date,X-Amz-Security-Token',
       },
       body: JSON.stringify({
         success: false,

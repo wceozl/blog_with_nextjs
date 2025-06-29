@@ -18,6 +18,12 @@ Globals:
     Environment:
       Variables:
         NODE_ENV: production
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
+      AllowOrigin: "'https://main.danec3gznhndc.amplifyapp.com,http://localhost:3000,http://localhost:3001'"
+      AllowCredentials: true
 
 #==============================================================================
 # 参数配置
