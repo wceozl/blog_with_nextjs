@@ -2,11 +2,6 @@
 
 基于 Next.js 和 NestJS 构建的现代化无服务器全栈博客应用，部署在 AWS 上。
 
-## 🚀 在线演示
-
-- **前端**: [https://main.danec3gznhndc.amplifyapp.com](https://main.danec3gznhndc.amplifyapp.com)
-- **API**: [https://1so6f6g8vl.execute-api.us-east-1.amazonaws.com/Prod](https://1so6f6g8vl.execute-api.us-east-1.amazonaws.com/Prod)
-
 ## 📋 主要功能
 
 - **现代化界面**: 基于 Tailwind CSS 的清爽响应式设计
